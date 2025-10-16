@@ -12,7 +12,12 @@ interface YouTubePlayerProps {
 
 // YouTube Data API를 사용한 검색 함수
 async function searchYouTubeVideo(query: string): Promise<string | null> {
-  const API_KEY = 'AIzaSyDPbu3zoKiL3WpYjhUowaTal9YazUq6ZC4';
+  const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
+
+  if (!API_KEY) {
+    console.error('YouTube API 키가 설정되지 않았습니다. .env 파일을 확인하세요.');
+    return null;
+  }
 
   try {
     const response = await fetch(
