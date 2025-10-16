@@ -310,7 +310,7 @@ export function GlobalMusicPlayer({ track, onClose, onNext, onPrev }: GlobalMusi
                 </p>
               ) : (
                 <p className="text-yellow-400 text-sm">
-                  ⚠️ YouTube 영상을 찾는 중... 확대 버튼을 눌러보세요
+                  ⚠️ 음악을 추가 하시고 나만의 플레이리스트를 완성하세요.(왼쪽 리스트 확인)
                 </p>
               )}
             </div>

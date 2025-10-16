@@ -451,8 +451,8 @@ export default function App() {
         {/* Header */}
         <header className="sticky top-0 z-50 backdrop-blur-md bg-[#0b0d21]/80 border-b border-[#060629]">
           <div className="container mx-auto px-8 py-6">
-            <div className="flex items-center justify-between mb-6">
-              <h1 className="text-2xl text-white font-bold text-center">
+            <div className="flex items-center justify-between mb-6 justify-center">
+              <h1 className="text-2xl text-white font-bold">
                 AIVORY의 음악 세계에 오신 것을 환영합니다! 빠른 검색으로 음악을 찾아보세요!🎵
               </h1>
             </div>
@@ -496,7 +496,7 @@ export default function App() {
               <div className="space-y-12">
                 {POPULAR_ARTISTS.map((category) => (
                   <div key={category.id}>
-                    <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center justify-left mb-6">
                       <h2 className="text-white text-2xl tracking-tight">
                         {category.name}
                       </h2>

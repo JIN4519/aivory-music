@@ -82,10 +82,10 @@ export function KoreanPlaylists() {
         </div>
         <div>
           <h2 className="text-sm text-white">
-            AIVORY 음악 정보사이트
+            AIVORY 음악을 즐기다!
           </h2>
           <p className="text-sm text-gray-600">
-            Spotify에서 큐레이션한 한국음악
+            Spotify와 Youtube에서 큐레이션한 한국음악을 만나보세요!
           </p>
         </div>
       </div>

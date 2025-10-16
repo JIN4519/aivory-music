@@ -148,7 +148,7 @@ export function SpotifyTrackResults({ query, onTrackPlay, onAddToQueue }: Spotif
                       <Button
                         variant="outline"
                         size="sm"
-                        className="bg-gradient-to-r from-[#4b5563]/10 to-[#4b5563]/10 border-[#3c3f46] text-[#a5a6b9] hover:bg-[#1a1f4a]"
+                        className="bg-gradient-to-r from-[#7342ff]/20 to-[#db65d1]/20 border-[#7342ff] text-white hover:from-[#7342ff]/30 hover:to-[#db65d1]/30"
                         onClick={() => {
                           if (!onAddToQueue) return;
                           onAddToQueue({
