@@ -31,6 +31,7 @@ export function GlobalMusicPlayer({ track, onClose, onNext, onPrev }: GlobalMusi
   const audioRef = useRef<HTMLAudioElement>(null);
   const youTubePlayerRef = useRef<any>(null);
   const youTubeContainerRef = useRef<HTMLDivElement | null>(null);
+  const [youTubeEmbedSearchQuery, setYouTubeEmbedSearchQuery] = useState<string | null>(null);
 
   // Spotify Audio Player
   useEffect(() => {
@@ -116,7 +117,9 @@ export function GlobalMusicPlayer({ track, onClose, onNext, onPrev }: GlobalMusi
 
   // Setup YouTube IFrame Player to capture end events so we can advance to next track
   useEffect(() => {
-    if (!isExpanded || !track?.youtubeVideoId || track?.previewUrl) return;
+  // if we're showing an embed search fallback, the YT API player is not needed
+  if (youTubeEmbedSearchQuery) return;
+  if (!isExpanded || !track?.youtubeVideoId || track?.previewUrl) return;
 
     let player: any = null;
     const mount = youTubeContainerRef.current;
@@ -172,6 +175,28 @@ export function GlobalMusicPlayer({ track, onClose, onNext, onPrev }: GlobalMusi
       try { (window as any).onYouTubeIframeAPIReady = undefined; } catch (e) {}
     };
   }, [isExpanded, track?.youtubeVideoId, track?.previewUrl]);
+
+  // If an embed-search query is set, mount a plain iframe for search-based playback
+  useEffect(() => {
+    if (!isExpanded || !youTubeEmbedSearchQuery || track?.previewUrl) return;
+    const mount = youTubeContainerRef.current;
+    if (!mount) return;
+    // create iframe
+    const iframe = document.createElement('iframe');
+    iframe.width = '100%';
+    iframe.height = '100%';
+    iframe.className = 'rounded-lg';
+    iframe.allow = 'autoplay; encrypted-media; picture-in-picture';
+    iframe.src = `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(youTubeEmbedSearchQuery)}&autoplay=1&controls=1`;
+    mount.innerHTML = '';
+    mount.appendChild(iframe);
+    setIsPlaying(true);
+
+    return () => {
+      try { mount.innerHTML = ''; } catch (e) {}
+      setIsPlaying(false);
+    };
+  }, [isExpanded, youTubeEmbedSearchQuery, track?.previewUrl]);
 
   const togglePlay = () => {
     if (track?.previewUrl && audioRef.current) {
@@ -241,13 +266,27 @@ export function GlobalMusicPlayer({ track, onClose, onNext, onPrev }: GlobalMusi
                       if (vid) {
                         // best-effort immediate UI update
                         (track as any).youtubeVideoId = vid;
+                        setYouTubeEmbedSearchQuery(null);
                         setIsExpanded(true);
                       } else {
-                        window.alert('자동 검색 결과가 없습니다. YouTube에서 직접 검색해 보세요.');
+                        // fallback to embed-search
+                        const qStr = `${track.artist} ${track.name}`.trim();
+                        if (qStr) {
+                          setYouTubeEmbedSearchQuery(qStr);
+                          setIsExpanded(true);
+                        } else {
+                          window.alert('자동 검색 결과가 없습니다. YouTube에서 직접 검색해 보세요.');
+                        }
                       }
                     } catch (e) {
                       console.error('YouTube search failed', e);
-                      window.alert('YouTube 검색 중 오류가 발생했습니다. YouTube에서 직접 검색해 보세요.');
+                      const qStr = `${track.artist} ${track.name}`.trim();
+                      if (qStr) {
+                        setYouTubeEmbedSearchQuery(qStr);
+                        setIsExpanded(true);
+                      } else {
+                        window.alert('YouTube 검색 중 오류가 발생했습니다. YouTube에서 직접 검색해 보세요.');
+                      }
                     }
                   }}
                   className="bg-gradient-to-r from-[#7342ff] to-[#db65d1]"
@@ -345,14 +384,30 @@ export function GlobalMusicPlayer({ track, onClose, onNext, onPrev }: GlobalMusi
                     const vid = await searchYouTubeVideo(q);
                     if (vid) {
                       (track as any).youtubeVideoId = vid;
+                      setYouTubeEmbedSearchQuery(null);
                       setIsExpanded(true);
                       setIsPlaying(true);
                     } else {
-                      window.alert('자동 검색 결과가 없습니다. YouTube에서 직접 검색해 보세요.');
+                      // API key missing or no result: use embed-search fallback
+                      const qStr = `${track?.artist ?? ''} ${track?.name ?? ''}`.trim();
+                      if (qStr) {
+                        setYouTubeEmbedSearchQuery(qStr);
+                        setIsExpanded(true);
+                        setIsPlaying(true);
+                      } else {
+                        window.alert('자동 검색 결과가 없습니다. YouTube에서 직접 검색해 보세요.');
+                      }
                     }
                   } catch (e) {
                     console.error('YouTube search failed', e);
-                    window.alert('YouTube 검색 중 오류가 발생했습니다. YouTube에서 직접 검색해 보세요.');
+                    const qStr = `${track?.artist ?? ''} ${track?.name ?? ''}`.trim();
+                    if (qStr) {
+                      setYouTubeEmbedSearchQuery(qStr);
+                      setIsExpanded(true);
+                      setIsPlaying(true);
+                    } else {
+                      window.alert('YouTube 검색 중 오류가 발생했습니다. YouTube에서 직접 검색해 보세요.');
+                    }
                   }
                 }}
                 className="bg-gradient-to-r from-[#7342ff] to-[#db65d1] hover:from-[#6235e6] hover:to-[#c554be] w-12 h-12 rounded-full p-0"
