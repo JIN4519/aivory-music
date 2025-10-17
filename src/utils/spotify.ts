@@ -10,7 +10,7 @@ let tokenExpiry: number | null = null;
 export async function getSpotifyToken(): Promise<string> {
   // Check if we have a valid token
   if (accessToken && tokenExpiry && Date.now() < tokenExpiry) {
-    return accessToken;
+  return accessToken!;
   }
 
   // Get new token
@@ -32,7 +32,7 @@ export async function getSpotifyToken(): Promise<string> {
     accessToken = data.access_token;
     tokenExpiry = Date.now() + (data.expires_in * 1000) - 60000; // Refresh 1 min before expiry
 
-    return accessToken;
+  return accessToken!;
   } catch (error) {
     console.error('Spotify authentication error:', error);
     throw error;
@@ -192,6 +192,71 @@ export async function getCategoryPlaylists(category: string): Promise<SpotifyPla
     return data.playlists?.items || [];
   } catch (error) {
     console.error('Spotify category playlists error:', error);
+    return [];
+  }
+}
+
+// Search for playlists by query (used to find official 'Top' playlists)
+export async function searchSpotifyPlaylists(query: string, limit = 10): Promise<SpotifyPlaylist[]> {
+  try {
+    const token = await getSpotifyToken();
+    const response = await fetch(
+      `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=playlist&limit=${limit}&market=KR`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to search Spotify playlists');
+    }
+
+    const data = await response.json();
+    return data.playlists?.items || [];
+  } catch (error) {
+    console.error('Spotify playlist search error:', error);
+    return [];
+  }
+}
+
+// Fetch tracks for a given playlist id
+export async function getPlaylistTracks(playlistId: string, limit = 100): Promise<SpotifyTrack[]> {
+  try {
+    const token = await getSpotifyToken();
+    const response = await fetch(
+      `https://api.spotify.com/v1/playlists/${playlistId}/tracks?market=KR&limit=${limit}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to get playlist tracks');
+    }
+
+    const data = await response.json();
+    // items have shape { track: { ...SpotifyTrack } }
+    const tracks = (data.items || []).map((item: any) => item.track).filter(Boolean);
+    return tracks;
+  } catch (error) {
+    console.error('Spotify playlist tracks error:', error);
+    return [];
+  }
+}
+
+// Convenience: find a playlist by search query then return its tracks (first match)
+export async function getChartTracksByQuery(query: string, limit = 100): Promise<SpotifyTrack[]> {
+  try {
+    const playlists = await searchSpotifyPlaylists(query, 5);
+    if (!playlists || playlists.length === 0) return [];
+    const playlist = playlists[0];
+    return await getPlaylistTracks(playlist.id, limit);
+  } catch (e) {
+    console.error('getChartTracksByQuery error:', e);
     return [];
   }
 }

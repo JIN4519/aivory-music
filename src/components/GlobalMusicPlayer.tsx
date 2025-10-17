@@ -29,6 +29,8 @@ export function GlobalMusicPlayer({ track, onClose, onNext, onPrev }: GlobalMusi
   const [isMuted, setIsMuted] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const youTubePlayerRef = useRef<any>(null);
+  const youTubeContainerRef = useRef<HTMLDivElement | null>(null);
 
   // Spotify Audio Player
   useEffect(() => {
@@ -112,6 +114,65 @@ export function GlobalMusicPlayer({ track, onClose, onNext, onPrev }: GlobalMusi
     }
   }, [track?.youtubeVideoId, track?.previewUrl]);
 
+  // Setup YouTube IFrame Player to capture end events so we can advance to next track
+  useEffect(() => {
+    if (!isExpanded || !track?.youtubeVideoId || track?.previewUrl) return;
+
+    let player: any = null;
+    const mount = youTubeContainerRef.current;
+    if (!mount) return;
+
+    const onYouTubeIframeAPIReady = () => {
+      try {
+        player = new (window as any).YT.Player(mount, {
+          height: '100%',
+          width: '100%',
+          videoId: track.youtubeVideoId,
+          playerVars: { autoplay: 1, controls: 1, rel: 0 },
+          events: {
+            onStateChange: (e: any) => {
+              // YT.PlayerState.ENDED === 0
+              if (e.data === 0) {
+                setIsPlaying(false);
+                if (onNext) onNext();
+              } else if (e.data === 1) {
+                setIsPlaying(true);
+              } else if (e.data === 2) {
+                setIsPlaying(false);
+              }
+            }
+          }
+        });
+        youTubePlayerRef.current = player;
+      } catch (e) {
+        console.error('Failed to create YouTube player', e);
+      }
+    };
+
+    // Load API if needed
+    if (!(window as any).YT) {
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      document.body.appendChild(tag);
+      (window as any).onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
+    } else {
+      onYouTubeIframeAPIReady();
+    }
+
+    return () => {
+      try {
+        if (youTubePlayerRef.current && youTubePlayerRef.current.destroy) {
+          youTubePlayerRef.current.destroy();
+        }
+      } catch (e) {
+        // ignore
+      }
+      youTubePlayerRef.current = null;
+      // remove the global callback to avoid interfering with other players
+      try { (window as any).onYouTubeIframeAPIReady = undefined; } catch (e) {}
+    };
+  }, [isExpanded, track?.youtubeVideoId, track?.previewUrl]);
+
   const togglePlay = () => {
     if (track?.previewUrl && audioRef.current) {
       if (isPlaying) {
@@ -157,16 +218,10 @@ export function GlobalMusicPlayer({ track, onClose, onNext, onPrev }: GlobalMusi
         {/* Audio element for Spotify preview */}
         {track.previewUrl && <audio ref={audioRef} src={track.previewUrl} />}
 
-        {/* Expanded YouTube Player */}
+        {/* Expanded YouTube Player: mount via IFrame API to detect end events */}
         {isExpanded && track.youtubeVideoId && !track.previewUrl && (
           <div className="p-4 border-b border-[#060629] h-[calc(100%-96px)]">
-            <iframe
-              className="w-full h-full rounded-lg"
-              src={`https://www.youtube.com/embed/${track.youtubeVideoId}?autoplay=1&controls=1`}
-              title={`${track.artist} - ${track.name}`}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
+            <div ref={youTubeContainerRef} className="w-full h-full rounded-lg overflow-hidden" />
           </div>
         )}
 
@@ -247,42 +302,81 @@ export function GlobalMusicPlayer({ track, onClose, onNext, onPrev }: GlobalMusi
             </div>
           </div>
 
-          {/* Playback Controls - Only for Spotify */}
-          {track.previewUrl && (
-            <div className="flex-1 flex flex-col items-center gap-2 max-w-2xl">
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  onClick={togglePlay}
-                  className="bg-gradient-to-r from-[#7342ff] to-[#db65d1] hover:from-[#6235e6] hover:to-[#c554be] w-10 h-10 rounded-full p-0"
-                >
-                  {isPlaying ? (
-                    <Pause className="w-5 h-5 fill-white" />
-                  ) : (
-                    <Play className="w-5 h-5 fill-white ml-0.5" />
-                  )}
-                </Button>
-                {/* Prev button */}
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => onPrev && onPrev()}
-                  className="text-white hover:bg-white/5"
-                  aria-label="이전 트랙"
-                >
-                  <SkipBack className="w-4 h-4" />
-                </Button>
-                {/* Next button */}
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => onNext && onNext()}
-                  className="text-white hover:bg-white/5"
-                  aria-label="다음 트랙"
-                >
-                  <SkipForward className="w-4 h-4" />
-                </Button>
-              </div>
+          {/* Playback Controls: show prev/next always; play/pause and slider for Spotify previews */}
+          <div className="flex-1 flex flex-col items-center gap-2 max-w-2xl">
+            <div className="flex items-center gap-3">
+              {/* Prev button (slightly larger) */}
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => onPrev && onPrev()}
+                className="text-white hover:bg-white/5 w-11 h-11 rounded-full flex items-center justify-center"
+                aria-label="이전 트랙"
+              >
+                <SkipBack className="w-5 h-5" />
+              </Button>
+
+              {/* Play/Pause (center) */}
+              <Button
+                size="sm"
+                onClick={async () => {
+                  // Spotify preview available -> use audio element
+                  if (track?.previewUrl && audioRef.current) {
+                    togglePlay();
+                    return;
+                  }
+
+                  // If there's a YouTube id, toggle expanded player (start/stop)
+                  if (track?.youtubeVideoId && !track.previewUrl) {
+                    if (isExpanded) {
+                      setIsExpanded(false);
+                      setIsPlaying(false);
+                    } else {
+                      setIsExpanded(true);
+                      setIsPlaying(true);
+                    }
+                    return;
+                  }
+
+                  // No preview and no YouTube id: try to search YouTube automatically and expand if found
+                  try {
+                    const { searchYouTubeVideo } = await import('../utils/youtubeSearch');
+                    const q = `${track?.artist ?? ''} ${track?.name ?? ''} official`;
+                    const vid = await searchYouTubeVideo(q);
+                    if (vid) {
+                      (track as any).youtubeVideoId = vid;
+                      setIsExpanded(true);
+                      setIsPlaying(true);
+                    } else {
+                      window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(`${track?.artist ?? ''} ${track?.name ?? ''}`)}`, '_blank');
+                    }
+                  } catch (e) {
+                    console.error('YouTube search failed', e);
+                    window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(`${track?.artist ?? ''} ${track?.name ?? ''}`)}`, '_blank');
+                  }
+                }}
+                className="bg-gradient-to-r from-[#7342ff] to-[#db65d1] hover:from-[#6235e6] hover:to-[#c554be] w-12 h-12 rounded-full p-0"
+              >
+                {isPlaying ? (
+                  <Pause className="w-6 h-6 fill-white" />
+                ) : (
+                  <Play className="w-6 h-6 fill-white ml-0.5" />
+                )}
+              </Button>
+
+              {/* Next button (slightly larger) */}
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => onNext && onNext()}
+                className="text-white hover:bg-white/5 w-11 h-11 rounded-full flex items-center justify-center"
+                aria-label="다음 트랙"
+              >
+                <SkipForward className="w-5 h-5" />
+              </Button>
+            </div>
+
+            {track.previewUrl && (
               <div className="flex items-center gap-2 w-full">
                 <span className="text-xs text-[#747798] w-10 text-right">
                   {formatTime(currentTime)}
@@ -298,8 +392,8 @@ export function GlobalMusicPlayer({ track, onClose, onNext, onPrev }: GlobalMusi
                   {formatTime(duration)}
                 </span>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* YouTube message */}
           {!track.previewUrl && (

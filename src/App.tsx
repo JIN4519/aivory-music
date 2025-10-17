@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import Group12 from "./imports/Group12";
 import { SearchBar } from "./components/SearchBar";
-import { SpotifyCategorySection } from "./components/SpotifyCategorySection";
+// Removed SpotifyCategorySection import: discover tab will show Top100 tracks instead of artists
 import { SpotifyArtistDetail } from "./components/SpotifyArtistDetail";
 import { SpotifyResults } from "./components/SpotifyResults";
 import { SpotifyTrackResults } from "./components/SpotifyTrackResults";
+import { SpotifyChartSection } from "./components/SpotifyChartSection";
 import { KoreanPlaylists } from "./components/KoreanPlaylists";
 import { GlobalMusicPlayer, Track } from "./components/GlobalMusicPlayer";
 import {
@@ -16,11 +17,11 @@ import {
 import { Music2, ListMusic, TrendingUp } from "lucide-react";
 import { SpotifyArtist } from "./utils/spotify";
 
-// 인기 아티스트 3명
-const POPULAR_ARTISTS = [
-  { id: "popular1", name: "인기 아티스트", query: "BTS" },
-  { id: "popular2", name: "추천 아티스트", query: "BLACKPINK" },
-  { id: "popular3", name: "신규 아티스트", query: "NewJeans" },
+// 인기 트랙 카테고리 (Top100 기반 쿼리)
+const POPULAR_TRACKS = [
+  { id: "top100_kpop", name: "Top 100 - K-Pop", query: "kpop top 100" },
+  { id: "top100_global", name: "Top 100 - Global", query: "top 100" },
+  { id: "trending_korea", name: "오늘의 인기 음악", query: "kpop chart" },
 ];
 
 export default function App() {
@@ -32,9 +33,17 @@ export default function App() {
   // Queue / playlist state
   const [queue, setQueue] = useState<Track[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number | null>(null);
+  // Playback context: null = normal queue mode, otherwise contains a context like { type: 'chart', tracks }
+  const [playContext, setPlayContext] = useState<null | { type: 'chart'; tracks: Track[] }>(null);
 
-  // currentTrack is derived from queue + currentIndex for easier single-source-of-truth
-  const currentTrack = currentIndex !== null && queue[currentIndex] ? queue[currentIndex] : null;
+  // currentTrack is derived from playContext (chart) if active, otherwise from queue + currentIndex
+  const currentTrack = (() => {
+    if (playContext && currentIndex !== null) {
+      const t = playContext.tracks[currentIndex];
+      if (t) return t;
+    }
+    return currentIndex !== null && queue[currentIndex] ? queue[currentIndex] : null;
+  })();
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -43,12 +52,39 @@ export default function App() {
     }
   };
 
-  // Play a track immediately and replace the queue
+  // Play a track immediately and replace the queue (used by search results / manual adds)
   const playNow = (track: Track) => {
+    // clear any playback context when user explicitly plays a single track from search/add
+    setPlayContext(null);
     setQueue([track]);
     setCurrentIndex(0);
     // ensure youtube fallback is available if no preview
     enrichTrackWithYouTubeIfNeeded(0);
+  };
+
+  // Start playback using an explicit context (e.g. chart Top100) so next/prev move inside that context
+  const startContextPlay = (tracks: Track[], startIndex: number) => {
+    if (!tracks || tracks.length === 0) return;
+    // set a playContext but DO NOT modify the user's queue (do not auto-add 100 tracks)
+    setPlayContext({ type: 'chart', tracks });
+    setCurrentIndex(startIndex);
+    // ensure youtube fallback for the starting item if needed
+    enrichTrackWithYouTubeIfNeeded(startIndex);
+  };
+
+  // Add all tracks from a chart into the user's queue (append)
+  const addChartToQueue = (tracks: Track[]) => {
+    if (!tracks || tracks.length === 0) return;
+    setQueue((prev) => {
+      const newArr = [...prev, ...tracks];
+      // highlight start of added block
+      setHighlightedIndex(prev.length);
+      setTimeout(() => setHighlightedIndex(null), 2000);
+      return newArr;
+    });
+  // When user explicitly adds chart tracks to their queue, clear any active playContext
+  setPlayContext(null);
+    showToast(`차트 ${tracks.length}곡이 나만의 아이보리에 추가되었습니다.`);
   };
 
   // Add a track to the end of the queue (does not change currently playing)
@@ -90,13 +126,25 @@ export default function App() {
 
   const playAt = (index: number) => {
     console.log('playAt called with index:', index, 'queue length:', queue.length);
-    if (index < 0 || index >= queue.length) {
+    const getTrackByIndex = (idx: number) => {
+      if (playContext && playContext.type === 'chart') return playContext.tracks[idx];
+      return queue[idx];
+    };
+    const length = playContext && playContext.type === 'chart' ? playContext.tracks.length : queue.length;
+    if (index < 0 || index >= length) {
       console.warn('Invalid index:', index);
       return;
     }
-    const track = queue[index];
-    console.log('Playing track:', track.name, 'by', track.artist);
-    setCurrentIndex(index);
+    const track = getTrackByIndex(index);
+    if (!track) {
+      console.warn('No track at index', index);
+      return;
+    }
+  console.log('Playing track:', track.name, 'by', track.artist);
+  // If user explicitly plays at an index, clear any playContext so queue navigation is used
+  setPlayContext(null);
+  setQueue((q) => q); // trigger state to be stable
+  setCurrentIndex(index);
     enrichTrackWithYouTubeIfNeeded(index);
     showToast(`"${track.name}" 재생 중...`);
   };
@@ -104,19 +152,29 @@ export default function App() {
   // If track at index has no previewUrl and no youtubeVideoId, perform a YouTube search
   const enrichTrackWithYouTubeIfNeeded = async (index: number) => {
     try {
-      const item = queue[index];
+      const getTrackByIndex = (idx: number) => {
+        if (playContext && playContext.type === 'chart') return playContext.tracks[idx];
+        return queue[idx];
+      };
+      const item = getTrackByIndex(index);
       if (!item) return;
       if (item.previewUrl) return; // Spotify preview available
       if (item.youtubeVideoId) return; // already has youtube id
-
-      const modQueue = [...queue];
       // dynamic import to avoid bundling if not used
       const { searchYouTubeVideo } = await import('./utils/youtubeSearch');
       const q = `${item.artist} ${item.name} official`;
       const videoId = await searchYouTubeVideo(q);
       if (videoId) {
-        modQueue[index] = { ...modQueue[index], youtubeVideoId: videoId };
-        setQueue(modQueue);
+        // If we're in chart context, update the context tracks; otherwise update queue
+        if (playContext && playContext.type === 'chart') {
+          const newTracks = [...playContext.tracks];
+          newTracks[index] = { ...newTracks[index], youtubeVideoId: videoId };
+          setPlayContext({ ...playContext, tracks: newTracks });
+        } else {
+          const modQueue = [...queue];
+          modQueue[index] = { ...modQueue[index], youtubeVideoId: videoId };
+          setQueue(modQueue);
+        }
         showToast('YouTube 플레이어로 재생 준비되었습니다.');
       }
     } catch (e) {
@@ -126,17 +184,39 @@ export default function App() {
 
   const playNext = () => {
     if (currentIndex === null) return;
+    // If we're in a playContext (chart), keep navigation within the context tracks
+    if (playContext && playContext.type === 'chart') {
+      const ctxLength = playContext.tracks.length;
+      if (currentIndex + 1 < ctxLength) {
+        setCurrentIndex(currentIndex + 1);
+        enrichTrackWithYouTubeIfNeeded(currentIndex + 1);
+      } else {
+        // reached end of chart context: clear context and stop
+        setPlayContext(null);
+        setCurrentIndex(null);
+      }
+      return;
+    }
+
+    // Default queue behavior
     if (currentIndex + 1 < queue.length) {
       setCurrentIndex(currentIndex + 1);
       enrichTrackWithYouTubeIfNeeded(currentIndex + 1);
     } else {
-      // end of queue: stop playback but keep queue
       setCurrentIndex(null);
     }
   };
 
   const playPrev = () => {
     if (currentIndex === null) return;
+    if (playContext && playContext.type === 'chart') {
+      if (currentIndex > 0) {
+        setCurrentIndex(currentIndex - 1);
+        enrichTrackWithYouTubeIfNeeded(currentIndex - 1);
+      }
+      return;
+    }
+
     if (currentIndex > 0) {
       setCurrentIndex(currentIndex - 1);
       enrichTrackWithYouTubeIfNeeded(currentIndex - 1);
@@ -151,6 +231,19 @@ export default function App() {
       if (index === idx) return null; // removed current
       return idx;
     });
+  };
+
+  // Clear entire queue and reset playback state
+  const clearQueue = () => {
+    setQueue([]);
+    setCurrentIndex(null);
+    setPlayContext(null);
+    try {
+      localStorage.setItem(CURRENT_QUEUE_KEY, JSON.stringify({ queue: [], currentIndex: null }));
+    } catch (e) {
+      console.error('Failed to persist cleared queue', e);
+    }
+    showToast('나만의 아이보리를 비웠습니다.');
   };
 
   // Queue panel expand state
@@ -366,6 +459,13 @@ export default function App() {
                     <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
                   </svg>
                 </button>
+                <button
+                  className="px-4 py-2 bg-red-600 rounded-lg text-white hover:bg-red-700 font-medium flex items-center gap-2"
+                  onClick={() => clearQueue()}
+                  title="나만의 아이보리 전체 삭제"
+                >
+                  모두 삭제
+                </button>
               </div>
 
               {queue.length === 0 ? (
@@ -494,17 +594,21 @@ export default function App() {
 
             <TabsContent value="discover">
               <div className="space-y-12">
-                {POPULAR_ARTISTS.map((category) => (
+                {POPULAR_TRACKS.map((category) => (
                   <div key={category.id}>
                     <div className="flex items-center justify-left mb-6">
                       <h2 className="text-white text-2xl tracking-tight">
                         {category.name}
                       </h2>
                     </div>
-                    <SpotifyCategorySection
+                    {/* Render official chart/playlist tracks for each category */}
+                    <SpotifyChartSection
                       title={category.name}
                       query={category.query}
-                      onArtistClick={setSelectedArtist}
+                      onPlay={playNow}
+                      onAddToQueue={addToQueue}
+                      onStartContextPlay={startContextPlay}
+                      onAddChartToQueue={addChartToQueue}
                     />
                   </div>
                 ))}
