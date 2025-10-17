@@ -243,11 +243,11 @@ export function GlobalMusicPlayer({ track, onClose, onNext, onPrev }: GlobalMusi
                         (track as any).youtubeVideoId = vid;
                         setIsExpanded(true);
                       } else {
-                        window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(`${track.artist} ${track.name}`)}`, '_blank');
+                        window.alert('자동 검색 결과가 없습니다. YouTube에서 직접 검색해 보세요.');
                       }
                     } catch (e) {
                       console.error('YouTube search failed', e);
-                      window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(`${track.artist} ${track.name}`)}`, '_blank');
+                      window.alert('YouTube 검색 중 오류가 발생했습니다. YouTube에서 직접 검색해 보세요.');
                     }
                   }}
                   className="bg-gradient-to-r from-[#7342ff] to-[#db65d1]"
@@ -255,7 +255,7 @@ export function GlobalMusicPlayer({ track, onClose, onNext, onPrev }: GlobalMusi
                   찾아서 재생
                 </Button>
                 <Button
-                  onClick={() => window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(`${track.artist} ${track.name}`)}`, '_blank')}
+                  onClick={() => window.alert('배포 환경에서는 자동으로 새 탭을 열지 않습니다. YouTube에서 직접 검색해 주세요.')}
                   className="bg-red-600 hover:bg-red-700"
                 >
                   YouTube에서 열기
@@ -348,11 +348,11 @@ export function GlobalMusicPlayer({ track, onClose, onNext, onPrev }: GlobalMusi
                       setIsExpanded(true);
                       setIsPlaying(true);
                     } else {
-                      window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(`${track?.artist ?? ''} ${track?.name ?? ''}`)}`, '_blank');
+                      window.alert('자동 검색 결과가 없습니다. YouTube에서 직접 검색해 보세요.');
                     }
                   } catch (e) {
                     console.error('YouTube search failed', e);
-                    window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(`${track?.artist ?? ''} ${track?.name ?? ''}`)}`, '_blank');
+                    window.alert('YouTube 검색 중 오류가 발생했습니다. YouTube에서 직접 검색해 보세요.');
                   }
                 }}
                 className="bg-gradient-to-r from-[#7342ff] to-[#db65d1] hover:from-[#6235e6] hover:to-[#c554be] w-12 h-12 rounded-full p-0"
