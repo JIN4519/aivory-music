@@ -1,0 +1,14 @@
+{
+  "title": "今日の人気",
+  "welcome": "AIVORYの音楽ワールドへようこそ！クイック検索で音楽を見つけてください！🎵",
+  "tab_discover": "今日の人気",
+  "tab_search": "検索",
+  "tab_playlists": "プレイリスト",
+  "myqueue_title": "マイキュー",
+  "empty_music": "まだ音楽がありません",
+  "empty_sub": "音楽を検索して「キューに追加」をクリックしてください",
+  "add_all": "チャート全体を追加",
+  "clear_queue": "全て削除",
+  "play": "再生",
+  "pause": "一時停止"
+}

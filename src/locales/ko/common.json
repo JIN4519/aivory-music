@@ -1,0 +1,14 @@
+{
+  "title": "오늘의 인기",
+  "welcome": "AIVORY의 음악 세계에 오신 것을 환영합니다! 빠른 검색으로 음악을 찾아보세요!🎵",
+  "tab_discover": "오늘의 인기",
+  "tab_search": "검색",
+  "tab_playlists": "플레이리스트",
+  "myqueue_title": "나만의 아이보리",
+  "empty_music": "아직 음악이 없습니다",
+  "empty_sub": "음악을 검색해서 \"음악 추가\"를 눌러보세요",
+  "add_all": "차트 전체 추가",
+  "clear_queue": "모두 삭제",
+  "play": "재생",
+  "pause": "일시정지"
+}

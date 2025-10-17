@@ -1,0 +1,14 @@
+{
+  "title": "Today's Top",
+  "welcome": "Welcome to AIVORY's music world! Use quick search to find music! 🎵",
+  "tab_discover": "Today's Top",
+  "tab_search": "Search",
+  "tab_playlists": "Playlists",
+  "myqueue_title": "My Queue",
+  "empty_music": "No music yet",
+  "empty_sub": "Search for music and click \"Add to queue\"",
+  "add_all": "Add all chart tracks",
+  "clear_queue": "Clear all",
+  "play": "Play",
+  "pause": "Pause"
+}

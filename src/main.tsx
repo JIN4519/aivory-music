@@ -3,6 +3,7 @@
   import App from "./App.tsx";
   import "./index.css";
   import ErrorBoundary from './components/ErrorBoundary';
+  import './i18n';
 
   createRoot(document.getElementById("root")!).render(
     <ErrorBoundary>

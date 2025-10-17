@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useTranslation } from 'react-i18next';
 import Group12 from "./imports/Group12";
 import { SearchBar } from "./components/SearchBar";
 // Removed SpotifyCategorySection import: discover tab will show Top100 tracks instead of artists
@@ -15,6 +16,7 @@ import {
   TabsTrigger,
 } from "./components/ui/tabs";
 import { Music2, ListMusic, TrendingUp } from "lucide-react";
+import LanguageSwitcher from './components/LanguageSwitcher';
 import { SpotifyArtist } from "./utils/spotify";
 
 // 인기 트랙 카테고리 (Top100 기반 쿼리)
@@ -25,6 +27,7 @@ const POPULAR_TRACKS = [
 ];
 
 export default function App() {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedArtist, setSelectedArtist] =
     useState<SpotifyArtist | null>(null);
@@ -551,10 +554,11 @@ export default function App() {
         {/* Header */}
         <header className="sticky top-0 z-50 backdrop-blur-md bg-[#0b0d21]/80 border-b border-[#060629]">
           <div className="container mx-auto px-8 py-6">
-            <div className="flex items-center justify-between mb-6 justify-center">
-              <h1 className="text-2xl text-white font-bold">
-                AIVORY의 음악 세계에 오신 것을 환영합니다! 빠른 검색으로 음악을 찾아보세요!🎵
-              </h1>
+            <div className="flex items-center justify-between mb-6">
+              <h1 className="text-2xl text-white font-bold">{t('welcome')}</h1>
+              <div className="flex items-center gap-4">
+                <LanguageSwitcher />
+              </div>
             </div>
 
             <SearchBar onSearch={handleSearch} />
