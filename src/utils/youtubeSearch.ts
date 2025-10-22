@@ -8,13 +8,14 @@ export async function searchYouTubeVideo(query: string): Promise<string | null> 
   }
 
   try {
-  console.log('YouTube search query:', query);
+    console.log('YouTube search query:', query);
     const response = await fetch(
       `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&videoCategoryId=10&maxResults=1&key=${API_KEY}`
     );
     
     if (!response.ok) {
-      console.error('YouTube API error:', response.status);
+      const errorData = await response.json().catch(() => null);
+      console.error('YouTube API error:', response.status, errorData);
       return null;
     }
     
@@ -25,6 +26,7 @@ export async function searchYouTubeVideo(query: string): Promise<string | null> 
       return data.items[0].id.videoId;
     }
     
+    console.log('No YouTube videos found for query:', query);
     return null;
   } catch (error) {
     console.error('YouTube search error:', error);
